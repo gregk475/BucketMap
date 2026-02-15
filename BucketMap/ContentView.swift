@@ -3,16 +3,13 @@ import MapKit
 import SwiftData
 
 struct ContentView: View {
-    // Database access
     @Environment(\.modelContext) private var modelContext
     @Query private var locations: [BucketLocation]
     
-    // State for navigation and selection
     @State private var selectedLocation: BucketLocation?
     @State private var showingAddSheet = false
     @State private var showingListSheet = false
     
-    // Initial Camera Position: Full View of the US
     @State private var position: MapCameraPosition = .region(
         MKCoordinateRegion(
             center: CLLocationCoordinate2D(latitude: 39.8283, longitude: -98.5795),
@@ -23,14 +20,16 @@ struct ContentView: View {
     var body: some View {
         ZStack {
             // 1. The Map Layer
-            Map(position: $position, selection: $selectedLocation) {
+            Map(position: $position) {
                 ForEach(locations) { location in
-                    // Empty string "" hides the text label
+                    // Using an empty string for the title effectively hides the system label
                     Annotation("", coordinate: CLLocationCoordinate2D(latitude: location.latitude, longitude: location.longitude)) {
                         Image(systemName: "flag.fill")
-                            .font(.system(size: 18)) // 33% smaller than standard title size
+                            .font(.system(size: 18)) // 33% smaller
                             .foregroundStyle(location.isVisited ? .green : .red)
                             .shadow(color: .black.opacity(0.4), radius: 2, x: 1, y: 1)
+                            .padding(12) // Increases tap target without changing visual size
+                            .contentShape(Rectangle())
                             .onTapGesture {
                                 selectedLocation = location
                             }
@@ -39,35 +38,20 @@ struct ContentView: View {
             }
             .mapStyle(.standard(pointsOfInterest: .excludingAll))
             .mapControls {
-                MapCompass() // Shows when map is rotated
+                MapCompass()
             }
 
-            // 2. The UI Overlay Layer
+            // 2. UI Overlay
             VStack {
-                // Top Left: Add Button
                 HStack {
-                    Button {
-                        showingAddSheet.toggle()
-                    } label: {
-                        ControlIcon(icon: "plus")
-                    }
+                    Button { showingAddSheet.toggle() } label: { ControlIcon(icon: "plus") }
                     Spacer()
                 }
-                
                 Spacer()
-                
-                // Bottom Row: List and Recenter
                 HStack(alignment: .bottom) {
-                    Button {
-                        showingListSheet.toggle()
-                    } label: {
-                        ControlIcon(icon: "list.bullet")
-                    }
-                    
+                    Button { showingListSheet.toggle() } label: { ControlIcon(icon: "list.bullet") }
                     Spacer()
-                    
                     Button {
-                        // Animates back to the full US view
                         withAnimation(.spring()) {
                             position = .region(
                                 MKCoordinateRegion(
@@ -76,31 +60,23 @@ struct ContentView: View {
                                 )
                             )
                         }
-                    } label: {
-                        ControlIcon(icon: "map.fill")
-                    }
+                    } label: { ControlIcon(icon: "map.fill") }
                 }
             }
             .padding(.horizontal, 20)
             .padding(.bottom, 30)
         }
-        // Sheets for navigation
-        .sheet(isPresented: $showingAddSheet) {
-            AddLocationView()
-        }
-        .sheet(isPresented: $showingListSheet) {
-            LocationListView()
-        }
+        .sheet(isPresented: $showingAddSheet) { AddLocationView() }
+        .sheet(isPresented: $showingListSheet) { LocationListView() }
         .sheet(item: $selectedLocation) { location in
             NavigationStack {
-                EditLocationView(location: location)
+                LocationDetailView(location: location)
             }
             .presentationDetents([.medium, .large])
         }
     }
 }
 
-// Reusable Circular Button Component
 struct ControlIcon: View {
     let icon: String
     var body: some View {

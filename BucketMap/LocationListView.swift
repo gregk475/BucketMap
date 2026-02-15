@@ -2,28 +2,22 @@ import SwiftUI
 import SwiftData
 
 struct LocationListView: View {
-    // This pulls all locations from the database, sorted by newest first
-    @Query(sort: \BucketLocation.dateAdded, order: .reverse) private var locations: [BucketLocation]
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     
-    @State private var searchText = ""
-
-    // Filter logic for the search bar
-    var filteredLocations: [BucketLocation] {
-        if searchText.isEmpty {
-            return locations
-        } else {
-            return locations.filter { $0.title.localizedCaseInsensitiveContains(searchText) }
-        }
-    }
-
+    // Fetch all locations, sorted by title
+    @Query(sort: \BucketLocation.title) private var locations: [BucketLocation]
+    
     var body: some View {
         NavigationStack {
             List {
-                ForEach(filteredLocations) { location in
+                ForEach(locations) { location in
+                    // Tapping a row here opens the EDIT view
                     NavigationLink(destination: EditLocationView(location: location)) {
                         HStack {
+                            Image(systemName: "flag.fill")
+                                .foregroundStyle(location.isVisited ? .green : .red)
+                            
                             VStack(alignment: .leading) {
                                 Text(location.title)
                                     .font(.headline)
@@ -31,33 +25,37 @@ struct LocationListView: View {
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
-                            
-                            Spacer()
-                            
-                            Image(systemName: "flag.fill")
-                                .foregroundStyle(location.isVisited ? .green : .red)
                         }
                     }
                 }
-                .onDelete(perform: deleteLocation)
-                
+                .onDelete(perform: deleteLocations) // Adds swipe-to-delete
             }
-            .navigationTitle("Bucket List")
-            .searchable(text: $searchText, prompt: "Search spots...")
+            .navigationTitle("My Bucket List")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") { dismiss() }
+                    Button("Done") {
+                        dismiss()
+                    }
                 }
                 ToolbarItem(placement: .topBarLeading) {
-                    EditButton() // Allows bulk deleting
+                    EditButton() // Adds the "Edit" mode to delete multiple rows
+                }
+            }
+            .overlay {
+                if locations.isEmpty {
+                    ContentUnavailableView("No Spots Yet",
+                                           systemImage: "map.badge.2d",
+                                           description: Text("Add locations from the map to see them here."))
                 }
             }
         }
     }
-
-    private func deleteLocation(at offsets: IndexSet) {
+    
+    /// Deletes locations from the database
+    func deleteLocations(at offsets: IndexSet) {
         for index in offsets {
-            modelContext.delete(filteredLocations[index])
+            let location = locations[index]
+            modelContext.delete(location)
         }
     }
 }

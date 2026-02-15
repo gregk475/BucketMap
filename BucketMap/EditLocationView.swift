@@ -4,94 +4,53 @@ import CoreLocation
 
 struct EditLocationView: View {
     @Bindable var location: BucketLocation
-    @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
-    
     @State private var isGeocoding = false
 
     var body: some View {
         Form {
             Section("Location Details") {
                 TextField("Title", text: $location.title)
+                TextField("Street Address", text: $location.streetAddress)
                 
-                VStack(alignment: .leading) {
-                    TextField("Street Address", text: $location.streetAddress)
-                    
-                    if !location.streetAddress.isEmpty {
-                        Button {
-                            updateCoordinates()
-                        } label: {
-                            Label(isGeocoding ? "Locating..." : "Update Map Pin", systemImage: "mappin.and.ellipse")
-                                .font(.caption)
-                        }
-                        .disabled(isGeocoding)
-                        .padding(.top, 4)
+                if !location.streetAddress.isEmpty {
+                    Button { updateCoordinates() } label: {
+                        Label(isGeocoding ? "Locating..." : "Update Map Pin", systemImage: "mappin.and.ellipse")
+                            .font(.caption)
                     }
+                    .disabled(isGeocoding)
                 }
             }
             
-            Section("Links & Notes") {
+            Section("Notes & Links") {
                 TextField("URL", text: $location.urlString)
-                    .keyboardType(.URL)
-                    .autocapitalization(.none)
-                
-                ZStack(alignment: .topLeading) {
-                    if location.notes.isEmpty {
-                        Text("Add notes here...")
-                            .foregroundStyle(.placeholder)
-                            .padding(.top, 8)
-                            .padding(.leading, 4)
-                    }
-                    TextEditor(text: $location.notes)
-                        .frame(minHeight: 100)
-                }
+                TextEditor(text: $location.notes)
+                    .frame(minHeight: 100)
             }
             
             Section("Status") {
-                Toggle("Visited", isOn: $location.isVisited.animation(.spring()))
+                Toggle("Visited", isOn: $location.isVisited.animation())
                     .onChange(of: location.isVisited) { _, newValue in
                         location.dateVisited = newValue ? .now : nil
                     }
                 
                 if location.isVisited {
-                    DatePicker(
-                        "Date Visited",
-                        selection: Binding(
-                            get: { location.dateVisited ?? .now },
-                            set: { location.dateVisited = $0 }
-                        ),
-                        displayedComponents: .date
-                    )
-                    .transition(.move(edge: .top).combined(with: .opacity))
+                    DatePicker("Date", selection: Binding(get: { location.dateVisited ?? .now }, set: { location.dateVisited = $0 }), displayedComponents: .date)
                 }
             }
         }
-        .navigationTitle("Edit Spot")
-        .navigationBarTitleDisplayMode(.inline)
+        .navigationTitle("Edit Location")
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button("Done") {
-                    dismiss()
-                }
-                .fontWeight(.bold)
-            }
-        }
-        .overlay {
-            if isGeocoding {
-                ProgressView()
-                    .padding()
-                    .background(.ultraThinMaterial)
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                Button("Save") { dismiss() }
             }
         }
     }
 
-    /// Converts the text address into Latitude/Longitude coordinates
     func updateCoordinates() {
         isGeocoding = true
         let geocoder = CLGeocoder()
-        
-        geocoder.geocodeAddressString(location.streetAddress) { placemarks, error in
+        geocoder.geocodeAddressString(location.streetAddress) { placemarks, _ in
             if let coordinate = placemarks?.first?.location?.coordinate {
                 location.latitude = coordinate.latitude
                 location.longitude = coordinate.longitude
