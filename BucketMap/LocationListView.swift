@@ -5,14 +5,15 @@ struct LocationListView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     
-    // Fetch all locations, sorted by title
     @Query(sort: \BucketLocation.title) private var locations: [BucketLocation]
+    
+    // State to trigger the Add sheet from this view
+    @State private var showingAddSheet = false
     
     var body: some View {
         NavigationStack {
             List {
                 ForEach(locations) { location in
-                    // Tapping a row here opens the EDIT view
                     NavigationLink(destination: EditLocationView(location: location)) {
                         HStack {
                             Image(systemName: "flag.fill")
@@ -28,30 +29,41 @@ struct LocationListView: View {
                         }
                     }
                 }
-                .onDelete(perform: deleteLocations) // Adds swipe-to-delete
+                .onDelete(perform: deleteLocations)
             }
             .navigationTitle("My Bucket List")
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
+                // Left Side: Edit/Delete mode
+                ToolbarItem(placement: .topBarLeading) {
+                    EditButton()
+                }
+                
+                // Right Side: Add and Done buttons
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    Button {
+                        showingAddSheet.toggle()
+                    } label: {
+                        Image(systemName: "plus")
+                    }
+                    
                     Button("Done") {
                         dismiss()
                     }
                 }
-                ToolbarItem(placement: .topBarLeading) {
-                    EditButton() // Adds the "Edit" mode to delete multiple rows
-                }
+            }
+            .sheet(isPresented: $showingAddSheet) {
+                AddLocationView()
             }
             .overlay {
                 if locations.isEmpty {
                     ContentUnavailableView("No Spots Yet",
                                            systemImage: "map.badge.2d",
-                                           description: Text("Add locations from the map to see them here."))
+                                           description: Text("Add locations to start your journey."))
                 }
             }
         }
     }
     
-    /// Deletes locations from the database
     func deleteLocations(at offsets: IndexSet) {
         for index in offsets {
             let location = locations[index]
