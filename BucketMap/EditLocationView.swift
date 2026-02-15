@@ -1,11 +1,3 @@
-//
-//  EditLocationView.swift
-//  BucketMap
-//
-//  Created by Greg Kapp on 2/15/26.
-//
-
-
 import SwiftUI
 import SwiftData
 import CoreLocation
@@ -21,23 +13,46 @@ struct EditLocationView: View {
         Form {
             Section("Location Details") {
                 TextField("Title", text: $location.title)
-                TextField("Street Address", text: $location.streetAddress)
+                
+                VStack(alignment: .leading) {
+                    TextField("Street Address", text: $location.streetAddress)
+                    
+                    if !location.streetAddress.isEmpty {
+                        Button {
+                            updateCoordinates()
+                        } label: {
+                            Label(isGeocoding ? "Locating..." : "Update Map Pin", systemImage: "mappin.and.ellipse")
+                                .font(.caption)
+                        }
+                        .disabled(isGeocoding)
+                        .padding(.top, 4)
+                    }
+                }
             }
             
             Section("Links & Notes") {
                 TextField("URL", text: $location.urlString)
-                TextEditor(text: $location.notes)
-                    .frame(minHeight: 100)
+                    .keyboardType(.URL)
+                    .autocapitalization(.none)
+                
+                ZStack(alignment: .topLeading) {
+                    if location.notes.isEmpty {
+                        Text("Add notes here...")
+                            .foregroundStyle(.placeholder)
+                            .padding(.top, 8)
+                            .padding(.leading, 4)
+                    }
+                    TextEditor(text: $location.notes)
+                        .frame(minHeight: 100)
+                }
             }
             
             Section("Status") {
-                Toggle("Visited", isOn: $location.isVisited.animation(.easeInOut))
+                Toggle("Visited", isOn: $location.isVisited.animation(.spring()))
                     .onChange(of: location.isVisited) { _, newValue in
-                        // Set to now if checked, nil if unchecked
                         location.dateVisited = newValue ? .now : nil
                     }
                 
-                // The conditional field
                 if location.isVisited {
                     DatePicker(
                         "Date Visited",
@@ -47,31 +62,35 @@ struct EditLocationView: View {
                         ),
                         displayedComponents: .date
                     )
-                    .transition(.scale(scale: 0.9, anchor: .top).combined(with: .opacity))
+                    .transition(.move(edge: .top).combined(with: .opacity))
                 }
             }
-            
-            Button("Update Coordinates from Address") {
-                updateCoordinates()
-            }
-            .disabled(isGeocoding)
         }
         .navigationTitle("Edit Spot")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("Done") {
+                    dismiss()
+                }
+                .fontWeight(.bold)
+            }
+        }
         .overlay {
             if isGeocoding {
-                ProgressView("Updating Map...")
+                ProgressView()
                     .padding()
                     .background(.ultraThinMaterial)
-                    .cornerRadius(10)
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
             }
         }
     }
 
-    // If they changed the street address, we need to re-find the GPS pin
+    /// Converts the text address into Latitude/Longitude coordinates
     func updateCoordinates() {
         isGeocoding = true
         let geocoder = CLGeocoder()
+        
         geocoder.geocodeAddressString(location.streetAddress) { placemarks, error in
             if let coordinate = placemarks?.first?.location?.coordinate {
                 location.latitude = coordinate.latitude
